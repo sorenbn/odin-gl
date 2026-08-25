@@ -64,8 +64,18 @@ main :: proc() {
 	gl.DeleteShader(vertex_shader_id)
 	gl.DeleteShader(fragment_shader_id)
 
-	// triangle
-	vertices := [?]f32{-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0}
+	// quad
+	vertices := [?]f32 {
+		0.5,  0.5, 0.0,  // top right
+		0.5, -0.5, 0.0,  // bottom right
+		-0.5, -0.5, 0.0,  // bottom left
+		-0.5,  0.5, 0.0   // top left 
+	}
+
+	indices := [?]u32 {  // note that we start from 0!
+		0, 1, 3,   // first triangle
+		1, 2, 3    // second triangle
+	}
 
 	// vertex-buffer-object, vertex-array-object, element-buffer-objet
 	vao, vbo, ebo: u32
@@ -80,24 +90,20 @@ main :: proc() {
 	// bind it to ARRAY_BUFFER object
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	// copy user data into the buffers memory
-	gl.BufferData(
-		gl.ARRAY_BUFFER,
-		size_of(vertices),
-		rawptr(&vertices[0]),
-		gl.STATIC_DRAW,
-	)
+	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), rawptr(&vertices[0]), gl.STATIC_DRAW)
+
+	// same for indicies
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), rawptr(&indices[0]), gl.STATIC_DRAW)
+
 	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
 	attribute_location: u32 = 0
-	gl.VertexAttribPointer(
-		attribute_location,
-		3,
-		gl.FLOAT,
-		gl.FALSE,
-		3 * size_of(f32),
-		0,
-	)
+	gl.VertexAttribPointer(attribute_location, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
 	// vertex attributes are disabled by default, so enable here (input is location)
 	gl.EnableVertexAttribArray(attribute_location)
+
+	// draw in wire-frame mode
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	for !glfw.WindowShouldClose(window) {
 		// input
@@ -109,12 +115,13 @@ main :: proc() {
 
 		gl.UseProgram(shader_program_id)
 		gl.BindVertexArray(vao)
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
+		gl.BindVertexArray(0)
 
-		// check and poll events
-		glfw.PollEvents()
 		// swap the back buffer with the front buffer and present it to the screen
 		glfw.SwapBuffers(window)
+		// check and poll events
+		glfw.PollEvents()
 	}
 
 	glfw.Terminate()
