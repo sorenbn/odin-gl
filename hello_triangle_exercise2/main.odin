@@ -64,49 +64,47 @@ main :: proc() {
 	gl.DeleteShader(vertex_shader_id)
 	gl.DeleteShader(fragment_shader_id)
 
-	// quad
-	vertices := [?]f32 {
-		// left triangle
+	// left triangle
+	vertices_triangle_1 := [?]f32 {
 		-0.5,  0.25, 0.0,  // top center
 		-0.25, -0.25, 0.0,  // bottom right
 		-0.75, -0.25, 0.0,  // bottom left
-		// right triangle
+	}
+
+	// right triangle
+	verticies_triangle_2 := [?]f32 {
 		0.5,  0.25, 0.0,  // top center
 		0.25, -0.25, 0.0,  // bottom right
 		0.75, -0.25, 0.0,  // bottom left
 	}
 
-	indices := [?]u32 {  // note that we start from 0!
-		0, 1, 2,   // first triangle
-		3, 4, 5,    // second triangle
-	}
-
 	// VBO: vertex-buffer-object (verticies data)
 	// EBO: element-buffer-objet (indicies data)
 	// VAO: vertex-array-object (object that stores the vertex attribute setup and EBO binding)
-	vbo, ebo, vao: u32
+	vbo, vao: [2]u32
 	// generate buffers
-	gl.GenVertexArrays(1, &vao)
-	gl.GenBuffers(1, &vbo)
-	gl.GenBuffers(1, &ebo)
+	gl.GenVertexArrays(2, &vao[0])
+	gl.GenBuffers(2, &vbo[0])
 
-	// bind vertex-array-object
-	gl.BindVertexArray(vao)
-
+	// bind vertex-array-object to tthe first triangle
+	gl.BindVertexArray(vao[0])
 	// bind it to ARRAY_BUFFER object
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[0])
 	// copy user data into the buffers memory
-	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), rawptr(&vertices[0]), gl.STATIC_DRAW)
-
-	// same for indicies, but for 'ELEMENT_ARRAY_BUFFER'
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), rawptr(&indices[0]), gl.STATIC_DRAW)
-
+	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices_triangle_1), &vertices_triangle_1[0], gl.STATIC_DRAW)
 	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
-	attribute_location: u32 = 0
-	gl.VertexAttribPointer(attribute_location, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
-	// vertex attributes are disabled by default, so enable here (input is location)
-	gl.EnableVertexAttribArray(attribute_location)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+	gl.EnableVertexAttribArray(0)
+
+	// bind vertex-array-object to tthe first triangle
+	gl.BindVertexArray(vao[1])
+	// bind it to ARRAY_BUFFER object
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[1])
+	// copy user data into the buffers memory
+	gl.BufferData(gl.ARRAY_BUFFER, size_of(verticies_triangle_2), &verticies_triangle_2[0], gl.STATIC_DRAW)
+	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+	gl.EnableVertexAttribArray(0)
 
 	// draw in wire-frame mode
 	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
@@ -120,9 +118,14 @@ main :: proc() {
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		gl.UseProgram(shader_program_id)
-		gl.BindVertexArray(vao)
-		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
-		gl.BindVertexArray(0)
+
+		// first triangle
+		gl.BindVertexArray(vao[0])
+		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+
+		// second triangle
+		gl.BindVertexArray(vao[1])
+		gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
 		// swap the back buffer with the front buffer and present it to the screen
 		glfw.SwapBuffers(window)
@@ -130,8 +133,8 @@ main :: proc() {
 		glfw.PollEvents()
 	}
 
-	gl.DeleteVertexArrays(1, &vao)
-	gl.DeleteBuffers(1, &vbo)
+	gl.DeleteVertexArrays(2, &vao[0])
+	gl.DeleteBuffers(2, &vbo[0])
 	gl.DeleteProgram(shader_program_id)
 	glfw.Terminate()
 }

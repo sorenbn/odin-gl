@@ -96,11 +96,11 @@ main :: proc() {
 	// bind it to ARRAY_BUFFER object
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	// copy user data into the buffers memory
-	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), rawptr(&vertices[0]), gl.STATIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices[0], gl.STATIC_DRAW)
 
 	// same for indicies, but for 'ELEMENT_ARRAY_BUFFER'
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), rawptr(&indices[0]), gl.STATIC_DRAW)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices[0], gl.STATIC_DRAW)
 
 	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
 	attribute_location: u32 = 0
