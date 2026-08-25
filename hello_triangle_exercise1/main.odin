@@ -1,4 +1,4 @@
-package main
+package hello_triangle
 
 import "core:fmt"
 import "core:os"
@@ -84,7 +84,7 @@ main :: proc() {
 	// VBO: vertex-buffer-object (verticies data)
 	// EBO: element-buffer-objet (indicies data)
 	// VAO: vertex-array-object (object that stores the vertex attribute setup and EBO binding)
-	vao, vbo, ebo: u32
+	vbo, ebo, vao: u32
 	// generate buffers
 	gl.GenVertexArrays(1, &vao)
 	gl.GenBuffers(1, &vbo)
@@ -130,6 +130,9 @@ main :: proc() {
 		glfw.PollEvents()
 	}
 
+	gl.DeleteVertexArrays(1, &vao)
+	gl.DeleteBuffers(1, &vbo)
+	gl.DeleteProgram(shader_program_id)
 	glfw.Terminate()
 }
 
