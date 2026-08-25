@@ -66,15 +66,19 @@ main :: proc() {
 
 	// quad
 	vertices := [?]f32 {
-		0.5,  0.5, 0.0,  // top right
-		0.5, -0.5, 0.0,  // bottom right
-		-0.5, -0.5, 0.0,  // bottom left
-		-0.5,  0.5, 0.0   // top left 
+		// left triangle
+		-0.5,  0.25, 0.0,  // top center
+		-0.25, -0.25, 0.0,  // bottom right
+		-0.75, -0.25, 0.0,  // bottom left
+		// right triangle
+		0.5,  0.25, 0.0,  // top center
+		0.25, -0.25, 0.0,  // bottom right
+		0.75, -0.25, 0.0,  // bottom left
 	}
 
 	indices := [?]u32 {  // note that we start from 0!
-		0, 1, 3,   // first triangle
-		1, 2, 3    // second triangle
+		0, 1, 2,   // first triangle
+		3, 4, 5,    // second triangle
 	}
 
 	// VBO: vertex-buffer-object (verticies data)
@@ -105,7 +109,7 @@ main :: proc() {
 	gl.EnableVertexAttribArray(attribute_location)
 
 	// draw in wire-frame mode
-	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	for !glfw.WindowShouldClose(window) {
 		// input
