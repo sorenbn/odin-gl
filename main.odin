@@ -77,7 +77,9 @@ main :: proc() {
 		1, 2, 3    // second triangle
 	}
 
-	// vertex-buffer-object, vertex-array-object, element-buffer-objet
+	// VBO: vertex-buffer-object (verticies data)
+	// EBO: element-buffer-objet (indicies data)
+	// VAO: vertex-array-object (object that stores the vertex attribute setup and EBO binding)
 	vao, vbo, ebo: u32
 	// generate buffers
 	gl.GenVertexArrays(1, &vao)
@@ -92,7 +94,7 @@ main :: proc() {
 	// copy user data into the buffers memory
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), rawptr(&vertices[0]), gl.STATIC_DRAW)
 
-	// same for indicies
+	// same for indicies, but for 'ELEMENT_ARRAY_BUFFER'
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), rawptr(&indices[0]), gl.STATIC_DRAW)
 
