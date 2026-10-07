@@ -1,5 +1,6 @@
 package shaders
 
+import "core:math/linalg"
 import "core:fmt"
 import "core:os"
 import gl "vendor:OpenGL"
@@ -55,6 +56,11 @@ main :: proc() {
 		return
 	}
 
+	// check how many number of vertex attributes the hardware supports
+	va_number: i32
+	gl.GetIntegerv(gl.MAX_VERTEX_ATTRIBS, &va_number)
+	fmt.println(va_number)
+
 	shader_program_id: u32 = gl.CreateProgram()
 	gl.AttachShader(shader_program_id, vertex_shader_id)
 	gl.AttachShader(shader_program_id, fragment_shader_id)
@@ -66,9 +72,9 @@ main :: proc() {
 
 	// left triangle
 	vertices := [?]f32 {
-		0.0,  0.5, 0.0,  // top center
-		0.5, -0.5, 0.0,  // bottom right
-		-0.5, -0.5, 0.0,  // bottom left
+		0.0,  0.5, 0.0, 	0.0, 0.0, 1.0,  // top center
+		0.5, -0.5, 0.0,  	1.0, 0.0, 0.0, // bottom right
+		-0.5, -0.5, 0.0,  	0.0, 1.0, 0.0, // bottom left
 	}
 
 	// VBO: vertex-buffer-object (verticies data)
@@ -86,11 +92,17 @@ main :: proc() {
 	// copy user data into the buffers memory
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices[0], gl.STATIC_DRAW)
 	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
+
+	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 3 * size_of(f32))
+	gl.EnableVertexAttribArray(1)
 
 	// draw in wire-frame mode
 	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+
+	// get the location of our uniform color attribute in the shader
+	color_location := gl.GetUniformLocation(shader_program_id, "ourColor")
 
 	for !glfw.WindowShouldClose(window) {
 		// input
@@ -100,7 +112,10 @@ main :: proc() {
 		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
+		time_value := glfw.GetTime()
+		green_value := linalg.round((linalg.sin(time_value * 8.0) / 2.0) + 0.5)
 		gl.UseProgram(shader_program_id)
+		gl.Uniform4f(color_location, 0.0, f32(green_value), 0.0, 1.0)
 
 		// first triangle
 		gl.BindVertexArray(vao[0])
@@ -116,7 +131,7 @@ main :: proc() {
 	gl.DeleteBuffers(2, &vbo[0])
 	gl.DeleteProgram(shader_program_id)
 	glfw.Terminate()
-}
+	}
 
 process_input :: proc(window: glfw.WindowHandle) {
 	if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
