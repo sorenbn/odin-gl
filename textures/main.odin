@@ -1,15 +1,16 @@
-package shaders
+package textures
 
-import "core:math/linalg"
 import "core:fmt"
-import "core:os"
 import gl "vendor:OpenGL"
 import glfw "vendor:glfw"
-import "vendor:glfw/bindings"
 import stbi "vendor:stb/image"
 
 main :: proc() {
-	glfw.Init()
+	if !glfw.Init() {
+		fmt.eprintln("ERROR: Failed to initialize GLFW")
+		return
+	}
+	defer glfw.Terminate()
 
 	// tell glfw we're trying to use this major/minor version of opengl
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 4)
@@ -17,13 +18,15 @@ main :: proc() {
 	// use core profile version of opengl (not deprecated immediate-mode)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
+	stbi.set_flip_vertically_on_load(1)
+
 	window := glfw.CreateWindow(800, 600, "LearnOpenGL", nil, nil)
 
 	if window == nil {
 		fmt.println("ERROR: Failed to create GLFW window")
-		glfw.Terminate()
 		return
 	}
+	defer glfw.DestroyWindow(window)
 
 	// make context of our window the main context on the current thread
 	glfw.MakeContextCurrent(window)
@@ -33,138 +36,123 @@ main :: proc() {
 	gl.Viewport(0, 0, 800, 600)
 	glfw.SetFramebufferSizeCallback(window, callback_window_resized)
 
-	// shader setup
-	ok: bool
-	vertex_shader_id: u32
-	vertex_shader_id, ok = load_and_compile_shader(
-		"vertex.vert",
-		gl.VERTEX_SHADER,
-	)
-
+	shader, ok := shader_create("vertex.vert", "fragment.frag")
 	if !ok {
-		fmt.println("ERROR: Unable to load and compile vertex shader")
+		fmt.println("ERROR: Failed to create shader.")
 		return
 	}
+	defer shader_destroy(shader.program_id)
 
-	fragment_shader_id: u32
-	fragment_shader_id, ok = load_and_compile_shader(
-		"fragment.frag",
-		gl.FRAGMENT_SHADER,
-	)
-
-	if !ok {
-		fmt.println("ERROR: Unable to load and compile fragment shader")
-		return
-	}
-
-	// check how many number of vertex attributes the hardware supports
-	va_number: i32
-	gl.GetIntegerv(gl.MAX_VERTEX_ATTRIBS, &va_number)
-	fmt.println(va_number)
-
-	shader_program_id: u32 = gl.CreateProgram()
-	gl.AttachShader(shader_program_id, vertex_shader_id)
-	gl.AttachShader(shader_program_id, fragment_shader_id)
-	gl.LinkProgram(shader_program_id)
-
-	// shaders are not longer needed after being linked
-	gl.DeleteShader(vertex_shader_id)
-	gl.DeleteShader(fragment_shader_id)
-
-	// left triangle
 	vertices := [?]f32 {
-		0.0,  0.5, 0.0, 	0.0, 0.0, 1.0,  // top center
-		0.5, -0.5, 0.0,  	1.0, 0.0, 0.0, // bottom right
-		-0.5, -0.5, 0.0,  	0.0, 1.0, 0.0, // bottom left
+		// positions       // texture coords
+		 0.5,  0.5, 0.0,    1.0, 1.0, // top right
+		 0.5, -0.5, 0.0,    1.0, 0.0, // bottom right
+		-0.5, -0.5, 0.0,    0.0, 0.0, // bottom left
+		-0.5,  0.5, 0.0,    0.0, 1.0, // top left
 	}
 
-	// texture coords
-	tex_coords := [?]f32 {
-		0.0, 0.0,
-		1.0, 0.0,
-		0.5, 1.0, 
+	indices := [?]u32 {
+		0, 1, 3, // first triangle
+		1, 2, 3, // second triangle
 	}
 
-	// VBO: vertex-buffer-object (verticies data)
-	// EBO: element-buffer-objet (indicies data)
+	// VBO: vertex-buffer-object (vertex data)
+	// EBO: element-buffer-object (index data)
 	// VAO: vertex-array-object (object that stores the vertex attribute setup and EBO binding)
-	vbo, vao: [1]u32
+	vbo, vao, ebo: u32
 	// generate buffers
-	gl.GenVertexArrays(1, &vao[0])
-	gl.GenBuffers(1, &vbo[0])
+	gl.GenVertexArrays(1, &vao)
+	defer gl.DeleteVertexArrays(1, &vao)
+	gl.GenBuffers(1, &vbo)
+	defer gl.DeleteBuffers(1, &vbo)
+	gl.GenBuffers(1, &ebo)
+	defer gl.DeleteBuffers(1, &ebo)
 
-	// bind vertex-array-object to the first triangle
-	gl.BindVertexArray(vao[0])
+	// configure the rectangle's vertex attributes and index buffer
+	gl.BindVertexArray(vao)
 	// bind it to ARRAY_BUFFER object
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[0])
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	// copy user data into the buffers memory
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices[0], gl.STATIC_DRAW)
-	// tell opengl how to intepret the vertex attribute at location 0 (aPos in vertex shader)
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
+
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices[0], gl.STATIC_DRAW)
+
+	// position attribute
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
 
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 3 * size_of(f32))
+	// texture coord attribute
+	gl.VertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * size_of(f32), 3 * size_of(f32))
 	gl.EnableVertexAttribArray(1)
 
-	// texture stuff
-	texture_id: u32
-	gl.GenTextures(1, &texture_id)
-	gl.BindTexture(gl.TEXTURE_2D, texture_id)
-	
-	// texture wrapping
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+	texture_id, texture_ok := load_texture("container.jpg")
+	if !texture_ok {
+		return
+	}
+	defer gl.DeleteTextures(1, &texture_id)
 
-	// texture filtering
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	
-	width, height, nr_channels: i32 
-	image_data := stbi.load("container.jpg", &width, &height, &nr_channels, 0)
+	texture_id_2, texture_2_ok := load_texture("wall.jpg")
+	if !texture_2_ok {
+		return
+	}
+	defer gl.DeleteTextures(1, &texture_id_2)
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, image_data)
-	gl.GenerateMipmap(gl.TEXTURE_2D)
+	shader_use(shader.program_id)
+	shader_set_int(shader.program_id, "texture1", 0)
+	shader_set_int(shader.program_id, "texture2", 1)
 	
-	stbi.image_free(image_data)
-	
-	// border color for repeat-mode
-	// border_color := []f32 { 1.0, 1.0, 0.0, 1.0 }
-	// gl.TexParameterfv(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, raw_data(border_color))
-
-	// draw in wire-frame mode
-	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
-
-	// get the location of our uniform color attribute in the shader
-	color_location := gl.GetUniformLocation(shader_program_id, "ourColor")
+	gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 
 	for !glfw.WindowShouldClose(window) {
 		// input
 		process_input(window)
 
 		// rendering commands
-		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		time_value := glfw.GetTime()
-		green_value := linalg.round((linalg.sin(time_value * 8.0) / 2.0) + 0.5)
-		gl.UseProgram(shader_program_id)
-		gl.Uniform4f(color_location, 0.0, f32(green_value), 0.0, 1.0)
+		// bind each image to the unit assigned to its shader sampler
+		gl.ActiveTexture(gl.TEXTURE0)
+		gl.BindTexture(gl.TEXTURE_2D, texture_id)
 
-		// first triangle
-		gl.BindVertexArray(vao[0])
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.ActiveTexture(gl.TEXTURE1)
+		gl.BindTexture(gl.TEXTURE_2D, texture_id_2)
+
+		shader_use(shader.program_id)
+
+		// draw the rectangle's two triangles
+		gl.BindVertexArray(vao)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
 
 		// swap the back buffer with the front buffer and present it to the screen
 		glfw.SwapBuffers(window)
 		// check and poll events
 		glfw.PollEvents()
 	}
-	
-	gl.DeleteVertexArrays(2, &vao[0])
-	gl.DeleteBuffers(2, &vbo[0])
-	gl.DeleteProgram(shader_program_id)
-	glfw.Terminate()
+}
+
+load_texture :: proc(path: cstring) -> (u32, bool) {
+	width, height, nr_channels: i32
+	// Request RGBA so the upload format is consistent and rows are 4-byte aligned.
+	image_data := stbi.load(path, &width, &height, &nr_channels, 4)
+	if image_data == nil {
+		fmt.eprintln("ERROR: Could not load texture:", path, stbi.failure_reason())
+		return 0, false
 	}
+	defer stbi.image_free(image_data)
+
+	texture_id: u32
+	gl.GenTextures(1, &texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, texture_id)
+
+	// Wrapping defaults to REPEAT, and magnification filtering defaults to LINEAR.
+	// This minification filter needs the mipmaps generated after the upload.
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, image_data)
+	gl.GenerateMipmap(gl.TEXTURE_2D)
+
+	return texture_id, true
+}
 
 process_input :: proc(window: glfw.WindowHandle) {
 	if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
@@ -177,45 +165,4 @@ callback_window_resized :: proc "c" (
 	width, height: i32,
 ) {
 	gl.Viewport(0, 0, width, height)
-}
-
-load_and_compile_shader :: proc(path: string, type: u32) -> (u32, bool) {
-	data, err := os.read_entire_file(path, context.allocator)
-	if err != nil {
-		fmt.println("ERROR: Could not read vertex shader")
-		return 0, false
-	}
-	defer delete(data)
-
-	shader_id := gl.CreateShader(type)
-
-	source := cstring(raw_data(data))
-	source_length := i32(len(data))
-
-	gl.ShaderSource(shader_id, 1, &source, &source_length)
-	gl.CompileShader(shader_id)
-
-	success: i32
-	gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &success)
-
-	if success == 0 {
-		log_size: i32
-		gl.GetShaderiv(shader_id, gl.INFO_LOG_LENGTH, &log_size)
-
-		info_log := make([]u8, log_size)
-		defer delete(info_log)
-
-		written: i32
-		gl.GetShaderInfoLog(shader_id, log_size, &written, raw_data(info_log))
-
-		fmt.eprintln("ERROR: Couldn't compile shader:")
-		fmt.eprintln(path)
-		fmt.eprintln(string(info_log[:written]))
-
-		gl.DeleteShader(shader_id)
-
-		return 0, false
-	}
-
-	return shader_id, true
 }
