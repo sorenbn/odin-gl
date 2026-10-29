@@ -14,14 +14,14 @@ shader_create :: proc(vertex_path, frag_path: string) -> (Shader, bool) {
 	load_ok: bool
 	vert_id: u32
 
-	vert_id, load_ok = shader_load_and_compile_shader(vertex_path, gl.VERTEX_SHADER)
+	vert_id, load_ok = shader_load_and_compile(vertex_path, gl.VERTEX_SHADER)
 	if !load_ok {
 		fmt.println("ERROR: Unable to load and compile vertex shader")
 		return Shader{}, false
 	}
 
 	frag_id: u32
-	frag_id, load_ok = shader_load_and_compile_shader(frag_path, gl.FRAGMENT_SHADER)
+	frag_id, load_ok = shader_load_and_compile(frag_path, gl.FRAGMENT_SHADER)
 
 	if !load_ok {
 		fmt.println("ERROR: Unable to load and compile fragment shader")
@@ -80,7 +80,7 @@ shader_set_bool :: proc(program_id: u32, name: cstring, value: bool) {
 	gl.Uniform1i(gl.GetUniformLocation(program_id, name), i32(value))
 }
 
-shader_load_and_compile_shader :: proc(path: string, type: u32) -> (u32, bool) {
+shader_load_and_compile :: proc(path: string, type: u32) -> (u32, bool) {
 	data, err := os.read_entire_file(path, context.allocator)
 	if err != nil {
 		fmt.println("ERROR: Could not read shader")
